@@ -1,0 +1,18 @@
+qemu-system-x86_64.exe -hda msdos.img
+
+qemu-system-x86_64.exe -hda msdos.img -hdb fat:rw:D:/TASM/ -boot c -m 64
+
+
+
+D:\NASM\nasm.exe -fbin Lab6.asm -o Lab6.bin
+
+qemu-system-x86_64.exe Lab6.bin
+
+
+
+D:\NASM\nasm.exe -fbin Lab7.asm -o Lab7.bin
+
+qemu-system-x86_64.exe -soundhw pcspk Lab7.bin
+ 
+
+
