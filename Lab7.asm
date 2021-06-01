@@ -1,5 +1,6 @@
-TITLE LAB7
-; ЛР  №7
+[org 0x7c00] ; Початок BOOT сектора
+[bits 16]
+; ЛР №7
 ;------------------------------------------------------------------------------
 ; Архітектура комп'ютера
 ; ВУЗ:          КНУУ "КПІ"
@@ -10,197 +11,97 @@ TITLE LAB7
 ; Автори:       Філянін Чабан Хамад
 ; Команда:      №6
 ; Дата:         28/04/2021
-;------------------------І.ЗАГОЛОВОК ПРОГРАМИ-----------------------------------------
-IDEAL              ; Директива - тип Асемблера tasm
-MODEL SMALL        ; Директива - тип моделі пам'яті
-STACK 256          ; Директива - розмір стеку
-;------------------------ІІ.МАКРОСИ---------------------------------------------------
-; Макрос для ініціалізації
-MACRO MInit
-    mov ax, @data  ; ax <- @data
-    mov ds, ax	   ; ds <- ax	
-    mov es, ax	   ; es <- ax	
-ENDM MInit         ; Кінець макроса
- 
-;------------------ІІІ.ПОЧАТОК СЕГМЕНТУ ДАНИХ-----------------------------------------
-DATASEG
-	string db 254 ; змінна для строки
-	
-	str_len db 0
-	
-	db 254 dup ('*') ; заповнюємо буфер "*"
-	
-	; Змінні для виводу меню
-	menu_01 db "---------------MENU-----------------",13,10,'$'
-	menu_02 db "G = count",13,10,'$'
-	menu_03 db "H = beep",13,10,'$'
- 	menu_04 db "k = for biggest",13,10,'$' 
-	menu_05 db "c = for exit",13,10,'$'
-	menu_06 db "-------------MENU-END---------------",13,10,'$'
-	exit_mes db "Finished",13,10,'$'
-	
-	; Константи для виводу звуку
-	mess db ?
-	TIME EQU 3000
-	FREQUENCY EQU 1000
-	PORT_B EQU 61H
-	COMMAND_REG EQU 43H
-	CHANNEL_2 EQU 42H
-	symbol db ?
-	
-	; Змінні для завдань по варінтам
-	expr db "(a1-a2)*a3*a4+a5",13,10,'$'
-	v1 db "a1 = -1",13,10,'$'
-	v2 db "a2 = 1",13,10,'$'
-	v3 db "a3 = 1",13,10,'$'
-	v4 db "a4 = 2",13,10,'$'
-	v5 db "a5 = 3",13,10,'$'
-	
-	; Константи для завдань по варінтам
-	a1 EQU -1
-	a2 EQU 1
-	a3 EQU 1
-	a4 EQU 2
-	a5 EQU 3
-	
-	; Код виходу
-	exCode db 0
 
-;------------------IV.ПОЧАТОК СЕГМЕНТУ КОДУ-------------------------------------------
-CODESEG
-Start:
-MInit				; Виклик макросу
-	
+;---------------------ПОЧАТОК СЕГМЕНТУ КОДУ-------------------------------------------
+call display_main
 Main:
-	; Виводимо меню 
-	call display_main
+
 	; Викликаємо функцію зчитування з клавіатури
 	call input
 	
 	; Перевіряємо отримані значення
-	cmp ax, 047h
+	cmp al, "G"
 	je count
 	
-	cmp ax, 048h
+	cmp al, "H"
 	je beep
 	
-	cmp ax, 063h
+	cmp al, "k"
 	je exit
 	
-	cmp ax, 06Bh
-	je findbiggest
-	
+	; Виводимо меню 
+	call display_main
 	jmp Main
 
 ; Основні мітки обробки запитів
 count:
-	call calc
+	call calculate
 	jmp Main
 	
-beep: 
+beep:
 	call beep_sound	
 	jmp Main
 	
-findbiggest:
-	call big
-	jmp Main
-	
 exit:
-	mov dx, offset exit_mes
-	call print
+	mov dx, exit_mes
+	call printf
 
-;---------------------------------4. Вихід з програми-----------------------------
-	mov ah,4ch					; Завантаження числа 4ch до регістру ah
-								; (Функція DOS 4ch - виходу з програми)
-	mov al,[exCode] 			; отримання коду виходу
-	int 21h 					; виклик функції DOS 4ch
-
-; Призначення: вивід меню
-; Вхід: -
-; Вихід: -
-PROC display_main
+	jmp $
+; вивід меню
+display_main:
+	pusha
 	; переривання для очистки екрану
-	mov ah, 0
-	mov al, 3
-	int 10h
+	mov ax, 03h
+	int 0x10
+
 	
 	; виклик процедури для відображення меню порядково
-	mov dx, offset menu_01
-	call print
+	mov dx, menu_01
+	call printf
 	
-	mov dx, offset menu_02
-	call print
+	mov dx, menu_02
+	call printf
 	
-	mov dx, offset menu_03
-	call print
+	mov dx, menu_03
+	call printf
 	
-	mov dx, offset menu_04
-	call print
+	mov dx, menu_05
+	call printf
 	
-	mov dx, offset menu_05
-	call print
-	
-	mov dx, offset menu_06
-	call print
-	
+	mov dx, menu_06
+	call printf
+	popa
 	ret
-ENDP display_main
 
-; Призначення: зчитування символів з клавіатури
-; Вхід: -
-; Вихід: -
-PROC input
-	mov ah, 0ah
-	mov dx, offset string 	;записуємо початок буферу в регістр
-	int 21h
-	
-	xor ax,ax
-	mov bx, offset string 	; записуємо початок буферу в регістр
-	mov ax, [bx+1] 			; заносимо в ах значення символа
-	shr ax, 8				; зсув в регістрі ax
-	ret						; повертаємось з процедури
-ENDP input
 
-; Призначення: відображення змінної
-; Вхід: dx
-; Вихід: -
-PROC print
-	mov ah, 9h		; Переривання для виводу в консоль
-	int 21h			; виклик переривання 9h
-	xor dx,dx		; очистка dx
-	ret				; повертаємось з процедури
-ENDP print
-
-PROC wait_time ; процедура очікування, простий перебіг за 2 циклами
+wait_time: ; процедура очікування, простий перебіг за 2 циклами
+pusha
 push cx
 mov cx, TIME
 loop1:                 
-  PUSH cx               
-  MOV  cx,  TIME
+  push cx               
+  mov  cx,  TIME
   loop2:
      LOOP loop2
-  POP  cx
+  pop  cx
   LOOP loop1
 pop cx
+popa
 ret
-ENDP wait_time  ; кінець процедури очікування
 
-; Призначення: вивід звуку
-; Вхід: -
-; Вихід: -
-PROC beep_sound
+; вивід звуку
+beep_sound:
 	marker:
-		int 16h 			; Зберігає значення з клавіатури
+		int 0x16			; Зберігає значення з клавіатури
 		mov [symbol], al
-		cmp [symbol], 'q' 	; Перевірка на відповідність і встановлення прапору ознаки
-		jz Exit
+		
 	
 	mov al, 10110110b 		
 	out COMMAND_REG, al 	; байт в порт командний регістр
 		
 	mov bx, FREQUENCY		; виставляємо частоту
-	mov dx,0012h			; 
-	mov ax,34DDh			;
+	mov dx, 0012h			; 
+	mov ax, 34DDh			;
 	div bx					;
 
 	out 42h, al      	; вмикаємо таймер, що буде подавати імпульси на динамік за заданою частотою
@@ -227,30 +128,28 @@ PROC beep_sound
 	out PORT_B, al ; пересилка байтів у зворотньому порядку
 	
 	ret				; повертаємось з процедури
-ENDP beep_sound
 
-; Призначення: вирахунок виразу
-; Вхід: -
-; Вихід: -
-PROC calc
+; обрахунок виразу
+calculate:
 ; Вивід даних
-	mov dx, offset expr
-	call print
+	pusha
+	mov dx, expression
+	call printf
 	
-	mov dx, offset v1
-	call print
+	mov dx, v1
+	call printf
 	
-	mov dx, offset v2
-	call print
+	mov dx, v2
+	call printf
 	
-	mov dx, offset v3
-	call print
+	mov dx, v3
+	call printf
 	
-	mov dx, offset v4
-	call print
+	mov dx, v4
+	call printf
 	
-	mov dx, offset v5
-	call print
+	mov dx, v5
+	call printf
 	
 	xor dx, dx		; dx <- 0
 	mov ax, a1		; ax <- a1
@@ -268,70 +167,20 @@ PROC calc
 	add ax, bx		; ax <- ax+bx
 
 	call result		; Результат
-	mov ah ,01h
-	int 21h			; Переривання 1h
+	mov ah, 0x01
+
+	popa
 	ret				; повертаємось з процедури
-ENDP calc
 
-; Призначення: знаходження найбільшого значення
-; Вхід: -
-; Вихід: -
-PROC big
-; Вивід даних
-	mov dx, offset v1
-	call print
-	
-	mov dx, offset v2
-	call print
-	
-	mov dx, offset v3
-	call print
-	
-	mov dx, offset v4
-	call print
-	
-	mov dx, offset v5
-	call print
-	
-	mov ax, a1 		; ax <- a1
-	cmp ax, a2 		; порівнюємо a1 та a2
-	jg comp2 		; якщо а2 < а1
-	mov ax, a2 		; якщо а2 > а1
-comp2:
-; Ідентично, але з новим ax, якщо знаходить більше
-	cmp ax, a3
-	jg comp3
-	mov ax, a3
-comp3:
-	cmp ax, a4
-	jg comp4
-	mov ax, a4
-
-comp4:
-	cmp ax, a5
-	jg biggest
-	mov ax, a5
-	
-biggest:
-	; Результат
-	call result
-	
-	mov ah ,01h
-	int 21h			; Переривання 1h
-	ret				; повертаємось з процедури
-ENDP big
-
-; Призначення: вивід числа
-; Вхід: ax - число
-; Вихід: -
-PROC result
+; вивід числа
+result:
 	cmp ax, 0
-	jge pos				;ax > 0 
+	jge pos				; ax > 0 
 	
 	push ax				; ax в стек
 	mov al, '-'			
 	mov ah, 0eh
-	int 10h 			; вивід мінуса
+	int 0x10			; вивід мінуса
 	pop ax				; ax з стеку
 	neg ax
 	
@@ -339,9 +188,66 @@ PROC result
 	pos:
 		add ax, 30h		; в ascii код
 		mov ah, 0eh
-		int 10h			; вивід числа
+		int 0x10		; вивід числа
 	
 	ret					; повертаємось з процедури
-ENDP result
 
-end Start
+printf:  
+       pusha  
+	   mov si, dx
+
+	; Записуємо в AL поточний символ по зміщенню SI
+       print_loop:
+               mov al, [si]
+               cmp al, 0
+               jne print_char ; Якщо це ще не кінець рядка
+               popa
+               ret
+
+       print_char:
+               mov ah, 0x0e
+               int 0x10 ; Друкуємо символ, що знаходиться в AL
+               add si, 1 ; Переходимо до наступного символа в рядку
+               jmp print_loop
+;---------------------------------------------------------------------
+input:
+	mov ah, 0
+	int 0x16
+	ret
+	
+	; Константи для завдань по варінтам
+	a1 EQU -1
+	a2 EQU 1
+	a3 EQU 1
+	a4 EQU 2
+	a5 EQU 3
+
+	; Змінні для завдань по варінтам
+	expression db "(a1-a2)*a3*a4+a5",13,10,0
+	v1 db "a1 = -1",13,10,0
+	v2 db "a2 = 1",13,10,0
+	v3 db "a3 = 1",13,10,0
+	v4 db "a4 = 2",13,10,0
+	v5 db "a5 = 3",13,10,0
+			
+; Константи для виводу звуку
+	mess db 0
+	TIME EQU 10000
+	FREQUENCY EQU 1000
+	PORT_B EQU 61H
+	COMMAND_REG EQU 43H
+	CHANNEL_2 EQU 42H
+	symbol db 0
+	; Код виходу
+	exCode db 0
+
+	; Змінні для виводу меню
+	menu_01 db "---------------MENU-----------------",13,10,0
+	menu_02 db "G = count",13,10,0
+	menu_03 db "H = beep",13,10,0
+	menu_05 db "k = for exit",13,10,0
+	menu_06 db "-------------MENU-END---------------",13,10,0
+	exit_mes db "Finished",13,10,0
+
+times 510-($-$$) db 0
+dw 0xAA55
